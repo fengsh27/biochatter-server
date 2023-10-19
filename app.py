@@ -1,7 +1,6 @@
 from typing import Optional, Any
 from flask import Flask, request
 from dotenv import load_dotenv
-from dotenv import load_dotenv
 import atexit
 from src.conversation_manager import (
     chat,
