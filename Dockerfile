@@ -21,7 +21,7 @@ COPY . .
 EXPOSE 8000
 
 # Set the Gunicorn command to start the server
-CMD ["gunicorn", "app:app", "--bind", "127.0.0.1:8000"]
+CMD ["gunicorn", "app:app", "--bind", "127.0.0.1:5000"]
 
 # Build the Docker image:
 # docker build -t flask-app .
