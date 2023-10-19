@@ -1,5 +1,6 @@
 import os
 from datetime import datetime
+from datetime import datetime
 import logging
 from typing import Optional, Dict, List, Any
 from biochatter.llm_connect import (
@@ -8,6 +9,8 @@ from biochatter.llm_connect import (
     Conversation
 )
 from pprint import pprint
+import threading
+from threading import RLock
 from src.constants import (
     OPENAI_API_BASE,
     OPENAI_API_KEY,
@@ -18,6 +21,8 @@ from src.constants import (
 )
 
 logger = logging.getLogger(__name__)
+
+rlock = RLock()
 
 defaultModelConfig = {
     "model": "gpt-4",
@@ -34,7 +39,7 @@ MAX_AGE = 3*24*3600*1000 # 3 days
 
 def parse_api_key(bearToken: str) -> Dict:
     bearToken = bearToken.strip()
-    bearToken.replace("bearer", "")
+    bearToken = bearToken.replace("Bearer ", "")
     return bearToken
 
 class SessionData:
@@ -57,10 +62,10 @@ class SessionData:
             if not openai.api_key:
                 if not authKey:
                     return False
-                self.chatter.set_api_key(parse_api_key(authKey))
+                self.chatter.set_api_key(parse_api_key(authKey), self.sessionId)
         text = messages[-1]["content"]
         messages = messages[:-1]
-        pprint(messages)
+        # pprint(messages)
         self._setup_messages(messages)
         try:
             (msg, usage, _) = self.chatter.query(text)
@@ -84,34 +89,88 @@ class SessionData:
 conversationsDict = {}
 
 def initialize_conversation(session: str, modelConfig: dict):
-    if os.environ[OPENAI_API_TYPE] == "azure":
-        chatter = AzureGptConversation(
-            deployment_name=os.environ[OPENAI_DEPLOYMENT_NAME],
-            model_name=os.environ[OPENAI_MODEL],
-            prompts={},
-            version=os.environ[OPENAI_API_VERSION],
-            base=os.environ[OPENAI_API_BASE],
-        )
-        chatter.set_api_key(os.environ[OPENAI_API_KEY])
-        conversationsDict[session] = SessionData( session, modelConfig, chatter)
-    else:
-        chatter = GptConversation("gpt-3.5-turbo", prompts={})
-        conversationsDict[session] = SessionData(
-            session=session,
-            modelConfig=modelConfig,
-            chatter=chatter
-        )
+    rlock.acquire()
+    try:
+        if OPENAI_API_TYPE in os.environ and os.environ[OPENAI_API_TYPE] == "azure":
+            chatter = AzureGptConversation(
+                deployment_name=os.environ[OPENAI_DEPLOYMENT_NAME],
+                model_name=os.environ[OPENAI_MODEL],
+                prompts={},
+                version=os.environ[OPENAI_API_VERSION],
+                base=os.environ[OPENAI_API_BASE],
+            )
+            chatter.set_api_key(os.environ[OPENAI_API_KEY])
+            conversationsDict[session] = SessionData( session, modelConfig, chatter)
+        else:
+            chatter = GptConversation("gpt-3.5-turbo", prompts={})
+            conversationsDict[session] = SessionData(
+                session=session,
+                modelConfig=modelConfig,
+                chatter=chatter
+            )
+    except Exception as e:
+        logger.error(e)
+        raise e
+    finally:
+        rlock.release()
 def has_conversation(session: str) -> bool:
-    return session in conversationsDict
+    rlock.acquire()
+    try: 
+        return session in conversationsDict
+    finally:
+        rlock.release()
 def get_conversation(session: str) -> Optional[SessionData]:
-    if not session in conversationsDict:
-        initialize_conversation(session, defaultModelConfig.copy())
-    return conversationsDict[session]
+    rlock.acquire()
+    try:
+        if not session in conversationsDict:
+            initialize_conversation(session, defaultModelConfig.copy())
+        return conversationsDict[session]
+    except Exception as e:
+        logger.error(e)
+        raise e
+    finally:
+        rlock.release()
+
     
 def remove_conversation(session: str):
-    if not session in conversationsDict:
-        return
-    del conversationsDict[session]
+    rlock.acquire()
+    try:
+        if not session in conversationsDict:
+            return
+        del conversationsDict[session]
+    except Exception as e:
+        logger.error(e)
+    finally:
+        rlock.release()
 
+def chat(session: str, messages: Optional[List[str]], authKey: Optional[str]):
+    rlock.acquire()
+    try:
+        conversation = get_conversation(session=session)
+        return conversation.chat(messages=messages, authKey=authKey)
+    except Exception as e:
+        logger.error(e)
+        raise e
+    finally:
+        rlock.release()
 
+def recycle_conversations():
+    print(f"[fengsh] - {threading.get_native_id()} recycle_conversation")
+    rlock.acquire()
+    now = datetime.now().timestamp() * 1000 # in milliseconds
+    sessionsToRemove: List[str] = []
+    try:
+        for sessionId in conversationsDict.keys():
+            conversation = get_conversation(session=sessionId)
+            assert conversation is not None
+            print(f"[fengsh] sessionId is {sessionId}, refreshAt: {conversation.refreshedAt}, maxAge: {conversation.maxAge}")
+            if conversation.refreshedAt + conversation.maxAge < now:
+                sessionsToRemove.append(conversation.sessionId)
+        for sessionId in sessionsToRemove:
+            remove_conversation(sessionId)
+    except Exception as e:
+        logger.error(e)
+        raise e
+    finally:
+        rlock.release()
 

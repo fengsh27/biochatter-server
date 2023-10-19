@@ -12,6 +12,8 @@ biochatter = "^0.1.8"
 Flask = "^3.0.0"
 openai = "0.27.8"
 python-dotenv = "^1.0.0"
+schedule = "^1.2.1"
+gunicorn = "^21.2.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.2"
@@ -19,3 +21,10 @@ pytest = "^7.4.2"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra -q"
+testpaths = [
+    "tests",
+]
