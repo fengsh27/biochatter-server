@@ -11,6 +11,8 @@ from src.conversation_manager import (
 from src.job_recycle_conversations import run_scheduled_job_continuously
 
 load_dotenv()
+import os
+print(os.environ["OPENAI_API_TYPE"])
 cease_event = run_scheduled_job_continuously()
 def onExit():
     cease_event.set()
@@ -27,6 +29,7 @@ def get_params_from_json_body(json: Optional[Any], name: str, defaultVal: Option
 
 @app.route('/v1/chat/completions', methods=['POST'])
 def handle():
+    print("[post] completions")
     auth = request.headers.get("Authorization")
     auth = auth if auth is not None and len(auth) > 0 else ""
     jsonBody = request.json
