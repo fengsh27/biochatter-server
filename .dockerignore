@@ -1,0 +1,19 @@
+# Ignore common development files and directories
+.git
+.vscode
+*.pyc
+*.pyo
+*.pyd
+__pycache__
+
+# Ignore Flask specific files and directories
+instance/
+*.egg-info/
+*.egg
+*.pyc
+*.pyo
+*.pyd
+
+# Ignore local development files
+venv/
+.env

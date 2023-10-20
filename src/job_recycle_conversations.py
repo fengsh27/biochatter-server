@@ -10,8 +10,8 @@ def run_recycle_job(job_func):
     job_thread = threading.Thread(target=job_func)
     job_thread.start()
 
-# schedule.every().day.at("15:17", "America/New_York").do(run_recycle_job, recycle_conversations)
-schedule.every().minute.at(":17").do(run_recycle_job, recycle_conversations)
+schedule.every().day.at("12:00", "America/New_York").do(run_recycle_job, recycle_conversations)
+# schedule.every().minute.at(":17").do(run_recycle_job, recycle_conversations)
 
 def run_scheduled_job_continuously(interval=60):
     print(f"[fengsh] - {threading.get_native_id()} run_scheduled_job_continuously")

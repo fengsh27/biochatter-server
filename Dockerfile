@@ -18,10 +18,10 @@ RUN poetry config virtualenvs.create false \
 COPY . .
 
 # Expose the port that Gunicorn will listen on
-EXPOSE 8000
+EXPOSE 5000
 
 # Set the Gunicorn command to start the server
-CMD ["gunicorn", "app:app", "--bind", "127.0.0.1:5000"]
+CMD ["gunicorn", "app:app", "--bind", "0.0.0.0:5000", "--timeout", "180"]
 
 # Build the Docker image:
 # docker build -t flask-app .
