@@ -11,8 +11,6 @@ from src.conversation_manager import (
 from src.job_recycle_conversations import run_scheduled_job_continuously
 
 load_dotenv()
-import os
-print(os.environ["OPENAI_API_TYPE"])
 cease_event = run_scheduled_job_continuously()
 def onExit():
     cease_event.set()
